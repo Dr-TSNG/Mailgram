@@ -67,8 +67,7 @@ class EmailClient(object):
                 response = client.fetch(messages, 'RFC822')
                 for _, data in response.items():
                     message = email.message_from_bytes(data[b"RFC822"])
-                    if email.utils.parsedate_to_datetime(message["Date"]).replace(tzinfo=None) >= startup:
-                        yield self.get_mail_text(message)
+                    yield self.get_mail_text(message)
 
 
 if __name__ == "__main__":
@@ -83,19 +82,24 @@ if __name__ == "__main__":
         print('-' * 20)
         while True:
             for client in clients:
-                for mail in client.fetch():
-                    try:
+                try:
+                    for mail in client.fetch():
                         print("Received mail from {}".format(client.user))
-                        response = requests.post(
-                            url='https://api.telegram.org/bot{}/sendMessage'.format(config['token']),
-                            json={
-                                'chat_id': config['chatid'],
-                                'text': mail
-                            },
-                            proxies=config.get('proxies')
-                        )
-                        print(response.text)
-                    except Exception as e:
-                        print("Error: {}".format(e))
-                    print('-' * 20)
+                        for _ in range(3):
+                            try:
+                                response = requests.post(
+                                    url='https://api.telegram.org/bot{}/sendMessage'.format(config['token']),
+                                    json={
+                                        'chat_id': config['chatid'],
+                                        'text': mail
+                                    },
+                                    proxies=config.get('proxies')
+                                )
+                                print(response.text)
+                                break
+                            except Exception as e:
+                                print(f"Error: {e}")
+                        print('-' * 20)
+                except Exception as e:
+                    print(f"Error: {e}")
             time.sleep(config['interval'])
